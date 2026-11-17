@@ -18,49 +18,70 @@
 package org.quantumbadger.redreader.reddit.api;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
-import android.os.Bundle;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** 只在真正的网页浏览器中授权，允许浏览器将 OAuth 回跳交回应用。 */
 public final class OAuthBrowser {
 	private OAuthBrowser() {}
 
 	public static Intent intent(final Activity activity, final Uri uri, final boolean tor) {
+		final List<Intent> browsers = intents(activity, uri, tor);
+		return browsers.isEmpty() ? null : browsers.get(0);
+	}
+
+	public static List<Intent> intents(final Activity activity, final Uri uri, final boolean tor) {
+		final PackageManager manager = activity.getPackageManager();
+		final Map<String, Intent> candidates = new LinkedHashMap<>();
+		for(final String scheme : new String[]{"https", "http"}) {
+			final Intent generic = new Intent(Intent.ACTION_VIEW,
+					Uri.parse(scheme + "://example.org/")).addCategory(Intent.CATEGORY_BROWSABLE);
+			for(final ResolveInfo browser : manager.queryIntentActivities(generic, 0)) {
+				final ActivityInfo info = browser.activityInfo;
+				if(usable(activity, info, tor) && !candidates.containsKey(info.packageName)) {
+					candidates.put(info.packageName, new Intent(Intent.ACTION_VIEW, uri)
+							.addCategory(Intent.CATEGORY_BROWSABLE).setPackage(info.packageName)
+							.setComponent(new ComponentName(info.packageName, info.name)));
+				}
+			}
+		}
+		final Intent browserCategory = new Intent(Intent.ACTION_MAIN)
+				.addCategory(Intent.CATEGORY_APP_BROWSER);
+		for(final ResolveInfo browser : manager.queryIntentActivities(browserCategory, 0)) {
+			final ActivityInfo info = browser.activityInfo;
+			if(usable(activity, info, tor) && !candidates.containsKey(info.packageName)) {
+				candidates.put(info.packageName, new Intent(Intent.ACTION_VIEW, uri)
+						.addCategory(Intent.CATEGORY_BROWSABLE).setPackage(info.packageName));
+			}
+		}
 		final Intent generic = new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.org/"))
 				.addCategory(Intent.CATEGORY_BROWSABLE);
-		final PackageManager manager = activity.getPackageManager();
-		final List<ResolveInfo> browsers = manager.queryIntentActivities(
-				generic, PackageManager.MATCH_DEFAULT_ONLY);
 		final ResolveInfo preferred = manager.resolveActivity(generic,
 				PackageManager.MATCH_DEFAULT_ONLY);
-		String selected = null;
-		for(final ResolveInfo browser : browsers) {
-			if(browser.activityInfo == null || !browser.activityInfo.exported
-					|| activity.getPackageName().equals(browser.activityInfo.packageName)) {
-				continue;
-			}
-			final String name = browser.activityInfo.packageName;
-			if(tor && !name.equals("org.torproject.torbrowser")
-					&& !name.equals("org.torproject.torbrowser_alpha")) {
-				continue;
-			}
-			if(selected == null || (preferred != null && preferred.activityInfo != null
-					&& name.equals(preferred.activityInfo.packageName))) {
-				selected = name;
+		final List<Intent> result = new ArrayList<>();
+		if(preferred != null && preferred.activityInfo != null) {
+			final Intent first = candidates.remove(preferred.activityInfo.packageName);
+			if(first != null) {
+				result.add(first);
 			}
 		}
-		if(selected == null) {
-			return null;
-		}
-		final Bundle extras = new Bundle();
-		extras.putBinder("android.support.customtabs.extra.SESSION", null);
-		return new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
-				.setPackage(selected).putExtras(extras)
-				.putExtra("android.support.customtabs.extra.SEND_TO_EXTERNAL_HANDLER", false)
-				.putExtra("androidx.browser.customtabs.extra.SHARE_STATE", 2);
+		result.addAll(candidates.values());
+		return result;
+	}
+
+	private static boolean usable(final Activity activity, final ActivityInfo info,
+			final boolean tor) {
+		return info != null && info.exported && info.enabled
+				&& !activity.getPackageName().equals(info.packageName)
+				&& (!tor || "org.torproject.torbrowser".equals(info.packageName)
+				|| "org.torproject.torbrowser_alpha".equals(info.packageName));
 	}
 }

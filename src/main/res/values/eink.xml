@@ -20,8 +20,13 @@
 	<string name="oauth_browser_title">Sign in to Reddit</string>
 	<string name="oauth_browser_description">Use your browser to sign in with Google, Apple or a password. Then approve Reddit access and return to this app.</string>
 	<string name="oauth_browser_continue">Continue in browser (Google supported)</string>
-	<string name="oauth_browser_client_settings">Configure client ID in Settings → Network</string>
-	<string name="oauth_browser_client_required">Enter your Reddit Installed app client ID in Settings → Network → Reddit client ID override first. This is required even when you sign in with Google. Use redreader://rr_oauth_redir as the redirect URI.</string>
+	<string name="oauth_browser_client_settings">Enter Reddit client ID</string>
+	<string name="oauth_browser_client_id">Reddit client ID</string>
+	<string name="oauth_browser_client_empty">Enter your Reddit client ID.</string>
+	<string name="oauth_browser_save_continue">Save and continue</string>
+	<string name="oauth_browser_choose">Choose another browser</string>
+	<string name="oauth_browser_cannot_open">The browser could not open. Try Choose another browser, or enable your browser in Android settings.</string>
+	<string name="oauth_browser_client_required">This build needs your Reddit Installed app client ID, even for Google sign in. Enter the app ID, not your Google email or password. Create an Installed app at https://old.reddit.com/prefs/apps with redirect URI redreader://rr_oauth_redir. This saves the same setting as Settings → Network → Reddit client ID override.</string>
 	<string name="oauth_browser_missing">Install a browser such as Chrome or Firefox, then tap Continue in browser.</string>
 	<string name="oauth_browser_tor_required">Tor is enabled. Install Tor Browser to continue signing in.</string>
 	<string name="oauth_browser_waiting">Finish signing in and accept Reddit access in your browser. If you cancelled, tap Continue in browser to retry.</string>

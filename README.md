@@ -1,7 +1,7 @@
 RedReader
 =========
 
-本 fork 提供 `1.27-eink.3` 墨水屏版：实体键与屏幕按钮共用翻页，文字重叠，图片完整落页与分段查看，末页留白。
+本 fork 提供 `1.27-eink.4` 墨水屏版：实体键与屏幕按钮共用翻页，文字重叠，图片完整落页与分段查看，末页留白。
 使用、Reddit client ID 配置和构建见 [墨水屏阅读说明](docs/eink-reading.md)。
 
 An unofficial, open source Android client for Reddit.

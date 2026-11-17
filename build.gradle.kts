@@ -81,8 +81,8 @@ android {
 		applicationId = "org.mofanke.redreader.eink"
 		minSdk = libs.versions.sdk.min.get().toInt()
 		targetSdk = libs.versions.sdk.target.get().toInt()
-		versionCode = 11903
-		versionName = "1.27-eink.3"
+		versionCode = 11904
+		versionName = "1.27-eink.4"
 
 		vectorDrawables.generatedDensities("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -27,6 +27,9 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.EditText;
+import androidx.appcompat.app.AlertDialog;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +47,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowDialog;
 
 /** 验证浏览器登录、生命周期与回跳契约，不访问真实账号。 */
 @RunWith(RobolectricTestRunner.class)
@@ -67,14 +71,70 @@ public class BrowserOAuthTest {
 	}
 
 	private static void addBrowser(final String name) {
+		addBrowser(name, genericBrowser(), true);
+	}
+
+	private static void addBrowser(final String name, final Intent intent, final boolean isDefault) {
 		final ResolveInfo info = new ResolveInfo();
 		info.activityInfo = new ActivityInfo();
 		info.activityInfo.packageName = name;
 		info.activityInfo.name = name + ".Browser";
 		info.activityInfo.exported = true;
-		info.isDefault = true;
+		info.isDefault = isDefault;
 		Shadows.shadowOf(RuntimeEnvironment.getApplication().getPackageManager())
-				.addResolveInfoForIntent(genericBrowser(), info);
+				.addResolveInfoForIntent(intent, info);
+	}
+
+	private static <T extends View> T findView(final View view, final Class<T> type) {
+		if(type.isInstance(view)) {
+			return type.cast(view);
+		}
+		if(view instanceof ViewGroup) {
+			final ViewGroup group = (ViewGroup)view;
+			for(int i = 0; i < group.getChildCount(); i++) {
+				final T found = findView(group.getChildAt(i), type);
+				if(found != null) {
+					return found;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static Button findButton(final View view, final String text) {
+		if(view instanceof Button && text.contentEquals(((Button)view).getText())) {
+			return (Button)view;
+		}
+		if(view instanceof ViewGroup) {
+			final ViewGroup group = (ViewGroup)view;
+			for(int i = 0; i < group.getChildCount(); i++) {
+				final Button found = findButton(group.getChildAt(i), text);
+				if(found != null) {
+					return found;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static void clearClientId() {
+		General.getSharedPrefs(RuntimeEnvironment.getApplication()).edit()
+				.putString(RuntimeEnvironment.getApplication().getString(
+						R.string.pref_reddit_client_id_override_key), "").apply();
+	}
+
+	private static AlertDialog latestDialog() {
+		return (AlertDialog)ShadowDialog.getLatestDialog();
+	}
+
+	public static class RestrictedLoginActivity extends OAuthLoginActivity {
+		@Override
+		public void startActivity(final Intent intent) {
+			if("test.blocked.browser".equals(intent.getPackage())) {
+				throw new SecurityException("Simulated disabled browser");
+			}
+			super.startActivity(intent);
+		}
 	}
 
 	private static Uri response(final String state) {
@@ -125,6 +185,103 @@ public class BrowserOAuthTest {
 		final OAuthLoginActivity activity = Robolectric.buildActivity(OAuthLoginActivity.class)
 				.setup().get();
 		Assert.assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+	}
+
+	@Test
+	public void missingClientIdShowsInputAndSavingStartsBrowser() {
+		clearClientId();
+		addBrowser("com.android.chrome");
+		final OAuthLoginActivity activity = Robolectric.buildActivity(OAuthLoginActivity.class)
+				.setup().get();
+		final AlertDialog dialog = latestDialog();
+		Assert.assertNotNull(dialog);
+		Assert.assertTrue(dialog.isShowing());
+		final EditText input = findView(dialog.getWindow().getDecorView(), EditText.class);
+		Assert.assertNotNull(input);
+		input.setText("  " + CLIENT + "  ");
+		dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+		final Intent browser = Shadows.shadowOf(activity).getNextStartedActivity();
+		Assert.assertEquals(CLIENT, browser.getData().getQueryParameter("client_id"));
+		Assert.assertFalse(dialog.isShowing());
+	}
+
+	@Test
+	public void emptyClientIdKeepsDialogOpenAndShowsError() {
+		clearClientId();
+		final OAuthLoginActivity activity = Robolectric.buildActivity(OAuthLoginActivity.class)
+				.setup().get();
+		final AlertDialog dialog = latestDialog();
+		dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+		Assert.assertTrue(dialog.isShowing());
+		Assert.assertNotNull(findView(dialog.getWindow().getDecorView(), EditText.class).getError());
+		Assert.assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+	}
+
+	@Test
+	public void noBrowserShowsVisibleError() {
+		final OAuthLoginActivity activity = Robolectric.buildActivity(OAuthLoginActivity.class)
+				.setup().get();
+		Assert.assertTrue(latestDialog().isShowing());
+		Assert.assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+		Assert.assertTrue(new BrowserOAuthSession(activity).consume(response("unused"), CLIENT)
+				== BrowserOAuthSession.Result.INVALID);
+	}
+
+	@Test
+	public void browserWithoutDefaultCategoryUsesExplicitActivity() {
+		addBrowser("test.oem.browser", genericBrowser(), false);
+		final Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+		final Intent intent = OAuthBrowser.intent(activity, Uri.parse("https://www.reddit.com/"), false);
+		Assert.assertNotNull(intent);
+		Assert.assertEquals("test.oem.browser.Browser", intent.getComponent().getClassName());
+		Assert.assertNull(intent.getExtras());
+	}
+
+	@Test
+	public void browserRoleProvidesPackageFallback() {
+		addBrowser("test.oem.browser", new Intent(Intent.ACTION_MAIN)
+				.addCategory(Intent.CATEGORY_APP_BROWSER), false);
+		final Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+		final Intent intent = OAuthBrowser.intent(activity, Uri.parse("https://www.reddit.com/"), false);
+		Assert.assertNotNull(intent);
+		Assert.assertEquals("test.oem.browser", intent.getPackage());
+	}
+
+	@Test
+	public void restrictedBrowserFallsBackToNextBrowser() {
+		addBrowser("test.blocked.browser");
+		addBrowser("com.android.chrome");
+		final RestrictedLoginActivity activity = Robolectric.buildActivity(RestrictedLoginActivity.class)
+				.setup().get();
+		Assert.assertEquals("com.android.chrome",
+				Shadows.shadowOf(activity).getNextStartedActivity().getPackage());
+	}
+
+	@Test
+	public void failedBrowserLaunchShowsErrorWithoutCrashing() {
+		addBrowser("test.blocked.browser");
+		final RestrictedLoginActivity activity = Robolectric.buildActivity(RestrictedLoginActivity.class)
+				.setup().get();
+		Assert.assertTrue(latestDialog().isShowing());
+		Assert.assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+	}
+
+	@Test
+	public void manualChoiceStartsSelectedBrowser() {
+		addBrowser("com.android.chrome");
+		addBrowser("org.mozilla.firefox");
+		final OAuthLoginActivity activity = Robolectric.buildActivity(OAuthLoginActivity.class)
+				.setup().get();
+		Shadows.shadowOf(activity).getNextStartedActivity();
+		final Button choose = findButton(activity.findViewById(android.R.id.content),
+				activity.getString(R.string.oauth_browser_choose));
+		Assert.assertNotNull(choose);
+		choose.performClick();
+		final AlertDialog dialog = latestDialog();
+		Assert.assertEquals(2, dialog.getListView().getCount());
+		dialog.getListView().performItemClick(null, 1, 1);
+		Assert.assertEquals("org.mozilla.firefox",
+				Shadows.shadowOf(activity).getNextStartedActivity().getPackage());
 	}
 
 	@Test

@@ -19,12 +19,18 @@ package org.quantumbadger.redreader.activities;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import java.util.List;
 import org.quantumbadger.redreader.R;
 import org.quantumbadger.redreader.common.General;
 import org.quantumbadger.redreader.common.PrefsUtility;
@@ -32,7 +38,6 @@ import org.quantumbadger.redreader.common.TorCommon;
 import org.quantumbadger.redreader.reddit.api.BrowserOAuthSession;
 import org.quantumbadger.redreader.reddit.api.OAuthBrowser;
 import org.quantumbadger.redreader.reddit.api.RedditOAuth;
-import org.quantumbadger.redreader.settings.SettingsActivity;
 
 /** 浏览器完成 Google 或密码登录，将有效授权回交现有账号处理流程。 */
 public class OAuthLoginActivity extends ViewsBaseActivity {
@@ -60,11 +65,15 @@ public class OAuthLoginActivity extends ViewsBaseActivity {
 		content.addView(mStatus);
 		final Button browser = new Button(this);
 		browser.setText(R.string.oauth_browser_continue);
-		browser.setOnClickListener(v -> startBrowser());
+		browser.setOnClickListener(v -> startBrowser(false));
 		content.addView(browser);
+		final Button choose = new Button(this);
+		choose.setText(R.string.oauth_browser_choose);
+		choose.setOnClickListener(v -> startBrowser(true));
+		content.addView(choose);
 		final Button settings = new Button(this);
 		settings.setText(R.string.oauth_browser_client_settings);
-		settings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+		settings.setOnClickListener(v -> configureClient(false));
 		content.addView(settings);
 		final Button cancel = new Button(this);
 		cancel.setText(R.string.dialog_cancel);
@@ -73,36 +82,109 @@ public class OAuthLoginActivity extends ViewsBaseActivity {
 			finish();
 		});
 		content.addView(cancel);
-		setBaseActivityListing(content);
+		final ScrollView scroll = new ScrollView(this);
+		scroll.addView(content);
+		setBaseActivityListing(scroll);
 		if(getIntent().hasExtra(RESPONSE)) {
 			complete(getIntent());
 		} else if(state == null) {
-			startBrowser();
+			startBrowser(false);
 		}
 	}
 
-	private void startBrowser() {
+	private void startBrowser(final boolean choose) {
 		final String client = RedditOAuth.getConfiguredClientId();
 		if(client == null || client.isEmpty() || client.equals("your ID here")) {
 			mStatus.setText(R.string.oauth_browser_client_required);
+			configureClient(choose);
 			return;
 		}
 		final boolean tor = TorCommon.isTorEnabled();
 		final String nonce = mSession.begin(client);
-		final Intent intent = OAuthBrowser.intent(this, RedditOAuth.getPromptUri(nonce), tor);
-		if(intent == null) {
+		final List<Intent> browsers = OAuthBrowser.intents(this,
+				RedditOAuth.getPromptUri(nonce), tor);
+		if(browsers.isEmpty()) {
 			mSession.clear();
-			mStatus.setText(tor ? R.string.oauth_browser_tor_required
+			showMessage(tor ? R.string.oauth_browser_tor_required
 					: R.string.oauth_browser_missing);
 			return;
 		}
+		if(choose) {
+			final CharSequence[] labels = new CharSequence[browsers.size()];
+			for(int i = 0; i < labels.length; i++) {
+				labels[i] = browserLabel(browsers.get(i));
+			}
+			new AlertDialog.Builder(this).setTitle(R.string.oauth_browser_choose)
+					.setItems(labels, (dialog, index) -> {
+						if(!launchBrowser(browsers.get(index))) {
+							mSession.clear();
+							showMessage(R.string.oauth_browser_cannot_open);
+						}
+					})
+					.setNegativeButton(R.string.dialog_cancel, (dialog, which) -> mSession.clear())
+					.setOnCancelListener(dialog -> mSession.clear()).show();
+			return;
+		}
+		for(final Intent browser : browsers) {
+			if(launchBrowser(browser)) {
+				return;
+			}
+		}
+		mSession.clear();
+		showMessage(R.string.oauth_browser_cannot_open);
+	}
+
+	private boolean launchBrowser(final Intent intent) {
 		try {
 			startActivity(intent);
 			mStatus.setText(R.string.oauth_browser_waiting);
-		} catch(final ActivityNotFoundException exception) {
-			mSession.clear();
-			mStatus.setText(R.string.oauth_browser_missing);
+			return true;
+		} catch(final ActivityNotFoundException | SecurityException exception) {
+			return false;
 		}
+	}
+
+	private CharSequence browserLabel(final Intent intent) {
+		try {
+			return getPackageManager().getApplicationLabel(getPackageManager()
+					.getApplicationInfo(intent.getPackage(), 0));
+		} catch(final PackageManager.NameNotFoundException exception) {
+			return intent.getPackage();
+		}
+	}
+
+	private void showMessage(final int message) {
+		mStatus.setText(message);
+		new AlertDialog.Builder(this).setTitle(R.string.oauth_browser_title).setMessage(message)
+				.setPositiveButton(R.string.dialog_close, null).show();
+	}
+
+	private void configureClient(final boolean choose) {
+		final EditText input = new EditText(this);
+		input.setSingleLine(true);
+		input.setInputType(InputType.TYPE_CLASS_TEXT
+				| InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+		input.setHint(R.string.oauth_browser_client_id);
+		input.setText(RedditOAuth.getConfiguredClientId());
+		final AlertDialog dialog = new AlertDialog.Builder(this)
+				.setTitle(R.string.oauth_browser_client_id)
+				.setMessage(R.string.oauth_browser_client_required)
+				.setView(input).setPositiveButton(R.string.oauth_browser_save_continue, null)
+				.setNegativeButton(R.string.dialog_cancel, null).create();
+		dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+				.setOnClickListener(view -> {
+					final String client = input.getText().toString().trim();
+					if(client.isEmpty() || client.equals("your ID here")) {
+						input.setError(getString(R.string.oauth_browser_client_empty));
+						return;
+					}
+					General.getSharedPrefs(this).edit()
+						.putString(getString(R.string.pref_reddit_client_id_override_key), client)
+						.apply();
+					dialog.dismiss();
+					startBrowser(choose);
+				}));
+		dialog.show();
 	}
 
 	@Override
