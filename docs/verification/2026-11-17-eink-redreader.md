@@ -3,7 +3,7 @@
 ## 来源与实现
 
 基于上游 `QuantumBadger/RedReader` 的 `3a1ab4f32a763155c49fa233cd1314173abd22d9`。
-代码位于本 fork 的 `feat/eink-reading` 分支，版本 `1.27-eink.1`，versionCode 11901。
+代码位于本 fork 的 `feat/eink-reading` 分支。首次构建为 `1.27-eink.1` / 11901，最终交付为 `1.27-eink.2` / 11902。
 
 - `activities/BaseActivity.java` 消费实体键完整序列，直接调用当前页面的屏幕按钮。
 - `eink/EinkPager.java` 与 `eink/EinkRecyclerView.java` 按实际阅读区域保留文字重叠、图片整块落页、末页留白和正反向起点。公共页面基类接入屏幕箭头，双栏按最近触摸的列表翻页。
@@ -63,3 +63,23 @@ APK 中的网页脚本与本次源码逐字节一致，不含私人的 `reddit_a
 需按上游要求在应用“设置 → 网络 → Reddit client ID override”填写自己的 Installed app ID。
 
 B7 Pro 上的实体按键映射、正文与图片实际分页、清晰度、加载速度、实际内存占用、刷新和残影仍待实机验证。
+
+## 1.27-eink.2 加载更多衔接
+
+交付前追加动态数据回归，发现 RecyclerView 缓存了旧末项的 ItemDecoration 留白。
+10 行变成 12 行后，第 9 行的实际底部为 400，但装饰底部仍为 870，在新内容中间保留了 470px 空白。
+该回归在修复前失败。
+
+`EinkRecyclerView` 注册 AdapterDataObserver，在追加、移除、移动及更新数据时刷新末项装饰缓存。
+追加数据保留已有返回起点；结构或视口变化时使用 revision 隔离过期的分页完成回调。
+同一回归修复后通过，旧末项的装饰底部与实际底部一致。
+
+最终使用前文同一全量命令重新执行：`pmd checkstyle lint test assembleRelease`，
+结果为 `BUILD SUCCESSFUL in 3m 16s`。PMD、Checkstyle 均为 0 违规，Lint 为 0 错误、0 警告。
+根应用 130 项单元测试通过，0 失败、0 错误、0 跳过，其中墨水屏回归为 6 项。
+网页脚本未改动，前文 5 项 Chromium 检查继续适用于本次源码。
+
+最终包名保持 `org.mofanke.redreader.eink`，版本 `1.27-eink.2`，versionCode 11902。
+使用同一独立签名密钥，可覆盖安装本 fork 的 1.27-eink.1。
+最终制品与校验值见 [eink-v1.27.2 发布页](https://github.com/mofanke/RedReader/releases/tag/eink-v1.27.2)。
+发布前仍从提交后的源码重新生成版本控制元数据、签名并核对包内脚本。

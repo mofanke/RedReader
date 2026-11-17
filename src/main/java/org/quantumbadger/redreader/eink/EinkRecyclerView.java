@@ -39,6 +39,63 @@ public final class EinkRecyclerView extends RecyclerView {
 	private int mIndex;
 	private boolean mPaging;
 	private Anchor mExpected;
+	private int mRevision;
+	private boolean mTailQueued;
+	private final AdapterDataObserver mTailObserver = new AdapterDataObserver() {
+		@Override
+		public void onChanged() {
+			refreshTail(true);
+		}
+
+		@Override
+		public void onItemRangeInserted(final int start, final int count) {
+			refreshTail(false);
+		}
+
+		@Override
+		public void onItemRangeRemoved(final int start, final int count) {
+			refreshTail(true);
+		}
+
+		@Override
+		public void onItemRangeMoved(final int from, final int to, final int count) {
+			refreshTail(true);
+		}
+
+		@Override
+		public void onItemRangeChanged(final int start, final int count) {
+			refreshTail(false);
+		}
+	};
+
+	private void refreshTail(final boolean reset) {
+		if(reset) {
+			mRevision++;
+			mHistory.clear();
+			mIndex = 0;
+			mExpected = null;
+		}
+		if(!mTailQueued) {
+			mTailQueued = true;
+			post(() -> {
+				mTailQueued = false;
+				invalidateItemDecorations();
+			});
+		}
+	}
+
+	@Override
+	public void setAdapter(@Nullable final Adapter adapter) {
+		final Adapter previous = getAdapter();
+		if(previous != null) {
+			previous.unregisterAdapterDataObserver(mTailObserver);
+		}
+		super.setAdapter(adapter);
+		if(adapter != null) {
+			adapter.registerAdapterDataObserver(mTailObserver);
+		}
+		refreshTail(true);
+	}
 
 	private static final class Anchor {
 		private final int position;
@@ -94,6 +151,7 @@ public final class EinkRecyclerView extends RecyclerView {
 			final int oldWidth, final int oldHeight) {
 		super.onSizeChanged(width, height, oldWidth, oldHeight);
 		if(height != oldHeight || width != oldWidth) {
+			mRevision++;
 			post(() -> {
 				for(final InlinePreviewHolderView image : images()) {
 					if(image.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
@@ -184,6 +242,7 @@ public final class EinkRecyclerView extends RecyclerView {
 		}
 		stopScroll();
 		mPaging = true;
+		final int revision = mRevision;
 		final boolean record = direction > 0 && mIndex + 1 >= mHistory.size();
 		if(direction < 0 && mIndex > 0) {
 			mIndex--;
@@ -211,6 +270,10 @@ public final class EinkRecyclerView extends RecyclerView {
 			scrollBy(0, direction * distance);
 		}
 		post(() -> {
+			if(revision != mRevision) {
+				mPaging = false;
+				return;
+			}
 			mExpected = anchor(manager);
 			if(record && mExpected != null && !current.same(mExpected)) {
 				mHistory.add(mExpected);

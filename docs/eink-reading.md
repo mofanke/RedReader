@@ -1,6 +1,6 @@
 # RedReader 墨水屏版
 
-本 fork 的版本为 `1.27-eink.1`，基于 RedReader 1.27，支持 Android 5.0（API 21）及以上。
+本 fork 的版本为 `1.27-eink.2`，基于 RedReader 1.27，支持 Android 5.0（API 21）及以上。
 应用名为 `RedReader E Ink`，包名为 `org.mofanke.redreader.eink`，可与原版并存。
 
 ## 阅读与翻页

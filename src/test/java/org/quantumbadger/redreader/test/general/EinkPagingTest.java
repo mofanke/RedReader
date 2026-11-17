@@ -103,6 +103,7 @@ public class EinkPagingTest {
 	}
 
 	private static final class TextAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+		private int mCount = 100;
 		@NonNull
 		@Override
 		public RecyclerView.ViewHolder onCreateViewHolder(@NonNull final ViewGroup parent,
@@ -121,8 +122,27 @@ public class EinkPagingTest {
 
 		@Override
 		public int getItemCount() {
-			return 100;
+			return mCount;
 		}
+	}
+
+	@Test
+	public void appendedRowsRemoveThePreviousLastRowsSpacer() {
+		final Activity activity = Robolectric.buildActivity(Activity.class).setup().visible().get();
+		final EinkRecyclerView list = new EinkRecyclerView(activity, null);
+		final LinearLayoutManager manager = new LinearLayoutManager(activity);
+		final TextAdapter adapter = new TextAdapter();
+		adapter.mCount = 10;
+		list.setLayoutManager(manager);
+		list.setAdapter(adapter);
+		activity.setContentView(list);
+		layout(list);
+		adapter.mCount = 12;
+		adapter.notifyItemRangeInserted(10, 2);
+		layout(list);
+		final View formerLast = manager.findViewByPosition(9);
+		Assert.assertEquals("Only the current last row may retain a page of blank space",
+				formerLast.getBottom(), manager.getDecoratedBottom(formerLast));
 	}
 
 	private static void layout(final EinkRecyclerView list) {
