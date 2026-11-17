@@ -28,9 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.quantumbadger.redreader.common.General;
 import org.quantumbadger.redreader.common.LinkHandler;
-import org.quantumbadger.redreader.common.RunnableOnce;
 import org.quantumbadger.redreader.common.UriString;
-import org.quantumbadger.redreader.reddit.api.RedditOAuth;
 
 public class LinkDispatchActivity extends AppCompatActivity {
 
@@ -67,7 +65,8 @@ public class LinkDispatchActivity extends AppCompatActivity {
 		}
 
 		if(data.getScheme().equalsIgnoreCase("redreader")) {
-			RedditOAuth.completeLogin(this, data, new RunnableOnce(this::finish));
+			startActivity(new Intent(this, OAuthRedirectActivity.class).setData(data));
+			finish();
 
 		} else {
 			LinkHandler.onLinkClicked(this, UriString.from(data), true, null, null, 0, true);

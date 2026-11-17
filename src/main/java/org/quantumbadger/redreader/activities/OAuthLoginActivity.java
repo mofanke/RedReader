@@ -17,291 +17,122 @@
 
 package org.quantumbadger.redreader.activities;
 
-import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Message;
-import android.util.Log;
-import android.webkit.ConsoleMessage;
-import android.webkit.CookieManager;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-
-import org.jetbrains.annotations.Nullable;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import androidx.annotation.Nullable;
 import org.quantumbadger.redreader.R;
-import org.quantumbadger.redreader.RedReader;
-import org.quantumbadger.redreader.common.DialogUtils;
-import org.quantumbadger.redreader.common.LinkHandler;
+import org.quantumbadger.redreader.common.General;
 import org.quantumbadger.redreader.common.PrefsUtility;
 import org.quantumbadger.redreader.common.TorCommon;
+import org.quantumbadger.redreader.reddit.api.BrowserOAuthSession;
+import org.quantumbadger.redreader.reddit.api.OAuthBrowser;
 import org.quantumbadger.redreader.reddit.api.RedditOAuth;
+import org.quantumbadger.redreader.settings.SettingsActivity;
 
-import java.util.ArrayList;
-import java.util.Objects;
-
-import info.guardianproject.netcipher.webkit.WebkitProxy;
-
+/** 浏览器完成 Google 或密码登录，将有效授权回交现有账号处理流程。 */
 public class OAuthLoginActivity extends ViewsBaseActivity {
+	public static final String RESPONSE = "oauth_browser_response";
+	private BrowserOAuthSession mSession;
+	private TextView mStatus;
 
-	private static final String TAG = "OAuthLoginActivity";
+	@Override
+	protected boolean einkUsePagingBar() {
+		return false;
+	}
 
-	private static final String OAUTH_HOST = "rr_oauth_redir";
-	private static final String REDREADER_SCHEME = "redreader";
-	private static final String HTTP_SCHEME = "http";
+	@Override
+	public void onCreate(@Nullable final Bundle state) {
+		PrefsUtility.applyTheme(this);
+		super.onCreate(state);
+		mSession = new BrowserOAuthSession(this);
+		setTitle(R.string.oauth_browser_title);
+		final LinearLayout content = new LinearLayout(this);
+		content.setOrientation(LinearLayout.VERTICAL);
+		final int padding = General.dpToPixels(this, 16);
+		content.setPadding(padding, padding, padding, padding);
+		mStatus = new TextView(this);
+		mStatus.setText(R.string.oauth_browser_description);
+		content.addView(mStatus);
+		final Button browser = new Button(this);
+		browser.setText(R.string.oauth_browser_continue);
+		browser.setOnClickListener(v -> startBrowser());
+		content.addView(browser);
+		final Button settings = new Button(this);
+		settings.setText(R.string.oauth_browser_client_settings);
+		settings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+		content.addView(settings);
+		final Button cancel = new Button(this);
+		cancel.setText(R.string.dialog_cancel);
+		cancel.setOnClickListener(v -> {
+			mSession.clear();
+			finish();
+		});
+		content.addView(cancel);
+		setBaseActivityListing(content);
+		if(getIntent().hasExtra(RESPONSE)) {
+			complete(getIntent());
+		} else if(state == null) {
+			startBrowser();
+		}
+	}
 
-	private final ArrayList<WebView> webViewStack = new ArrayList<>();
+	private void startBrowser() {
+		final String client = RedditOAuth.getConfiguredClientId();
+		if(client == null || client.isEmpty() || client.equals("your ID here")) {
+			mStatus.setText(R.string.oauth_browser_client_required);
+			return;
+		}
+		final boolean tor = TorCommon.isTorEnabled();
+		final String nonce = mSession.begin(client);
+		final Intent intent = OAuthBrowser.intent(this, RedditOAuth.getPromptUri(nonce), tor);
+		if(intent == null) {
+			mSession.clear();
+			mStatus.setText(tor ? R.string.oauth_browser_tor_required
+					: R.string.oauth_browser_missing);
+			return;
+		}
+		try {
+			startActivity(intent);
+			mStatus.setText(R.string.oauth_browser_waiting);
+		} catch(final ActivityNotFoundException exception) {
+			mSession.clear();
+			mStatus.setText(R.string.oauth_browser_missing);
+		}
+	}
+
+	@Override
+	protected void onNewIntent(final Intent intent) {
+		super.onNewIntent(intent);
+		setIntent(intent);
+		if(intent.hasExtra(RESPONSE)) {
+			complete(intent);
+		}
+	}
+
+	private void complete(final Intent intent) {
+		final String text = intent.getStringExtra(RESPONSE);
+		final Uri response = text == null ? null : Uri.parse(text);
+		final BrowserOAuthSession.Result result = mSession.consume(response,
+				RedditOAuth.getConfiguredClientId());
+		if(result == BrowserOAuthSession.Result.SUCCESS) {
+			setResult(123, new Intent().putExtra("url", response.toString()));
+			finish();
+		} else {
+			mStatus.setText(result == BrowserOAuthSession.Result.DENIED
+					? R.string.oauth_browser_denied : R.string.oauth_browser_invalid);
+		}
+	}
 
 	@Override
 	protected void onDestroy() {
+		if(isFinishing() && mSession != null) {
+			mSession.clear();
+		}
 		super.onDestroy();
-
-		clearBaseActivityListing();
-
-		for (final WebView w : webViewStack) {
-			w.destroy();
-		}
-
-		final CookieManager cookieManager = CookieManager.getInstance();
-		cookieManager.removeAllCookies(null);
-	}
-
-	@SuppressLint("SetJavaScriptEnabled")
-	private @Nullable WebView createWebView() {
-		final WebView view = new WebView(this);
-
-		// Note: cookies are deliberately not cleared here. This method is also
-		// used to create popup windows partway through the login flow, and
-		// clearing at that point would discard the session. See onCreate().
-		final CookieManager cookieManager = CookieManager.getInstance();
-		cookieManager.setAcceptCookie(true);
-		CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
-
-		if (TorCommon.isTorEnabled()) {
-			try {
-				final boolean result = WebkitProxy.setProxy(
-						RedReader.class.getCanonicalName(),
-						getApplicationContext(),
-						view,
-						"127.0.0.1",
-						8118);
-				if (!result) {
-					BugReportActivity.handleGlobalError(
-							this,
-							getResources().getString(R.string.error_tor_setting_failed));
-					return null;
-				}
-			} catch (final Exception e) {
-				BugReportActivity.handleGlobalError(this, e);
-				return null;
-			}
-		}
-
-		final WebSettings settings = view.getSettings();
-
-		settings.setBuiltInZoomControls(false);
-		settings.setJavaScriptEnabled(true);
-		settings.setUseWideViewPort(true);
-		settings.setLoadWithOverviewMode(true);
-		settings.setDomStorageEnabled(true);
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-			settings.setSaveFormData(false);
-		}
-		settings.setDatabaseEnabled(false);
-		settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-		settings.setDisplayZoomControls(false);
-
-		// Suggested by Reddit to work around ReCAPTCHA issues
-		settings.setSupportMultipleWindows(true);
-		settings.setJavaScriptCanOpenWindowsAutomatically(true);
-
-		view.setWebChromeClient(new WebChromeClient() {
-			@Override
-			public boolean onConsoleMessage(final ConsoleMessage consoleMessage) {
-				return true;
-			}
-
-			@Override
-			public boolean onCreateWindow(
-					final WebView view,
-					final boolean isDialog,
-					final boolean isUserGesture,
-					final Message resultMsg) {
-
-				// https://stackoverflow.com/a/11280814
-				Log.i(TAG, "New window created");
-				final WebView newWebView = createWebView();
-				webViewStack.add(newWebView);
-				setBaseActivityListing(newWebView);
-				final WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
-				transport.setWebView(newWebView);
-				resultMsg.sendToTarget();
-				return true;
-			}
-
-			@Override
-			public void onCloseWindow(final WebView window) {
-				if (webViewStack.size() > 1) {
-					final WebView removed = webViewStack.remove(webViewStack.size() - 1);
-					removed.destroy();
-					setBaseActivityListing(webViewStack.get(webViewStack.size() - 1));
-				}
-			}
-		});
-
-		view.setWebViewClient(new WebViewClient() {
-			@Override
-			public void onPageFinished(final WebView view, final String url) {
-				// Reddit shows a modal cookie consent dialog which can appear
-				// behind the login form while still blocking all input to it.
-				// Dismiss it by pressing its "Reject Optional Cookies" button
-				// as soon as it appears. The button is located using its slot
-				// name, which is locale-independent. The consent UI is loaded
-				// asynchronously after the page itself, hence the polling. As
-				// a fallback, if the button can't be found after 5 seconds but
-				// the consent sheet is open, hide the sheet directly.
-				view.evaluateJavascript(
-						"(function() {"
-								+ "if(window.rrCookieWorkaround) return;"
-								+ "window.rrCookieWorkaround = true;"
-								+ "var attempts = 0;"
-								+ "var clicked = false;"
-								+ "var timer = setInterval(function() {"
-									+ "attempts++;"
-									+ "var button = document.querySelector("
-											+ "'#data-protection-consent-dialog "
-											+ "button[slot=secondary-button]');"
-									+ "if(button) {"
-										+ "button.click();"
-										+ "clicked = true;"
-									+ "} else {"
-										+ "var sheet = document.getElementById("
-												+ "'data-protection-consent-sheet');"
-										+ "if(clicked && (!sheet || !sheet.open)) {"
-											+ "clearInterval(timer);"
-											+ "return;"
-										+ "}"
-										+ "if(attempts > 20 && sheet && sheet.open"
-												+ " && typeof sheet.hide === 'function') {"
-											+ "sheet.hide();"
-										+ "}"
-									+ "}"
-									+ "if(attempts > 120) clearInterval(timer);"
-								+ "}, 250);"
-								+ "})()",
-						null);
-			}
-
-			@Override
-			public boolean shouldOverrideUrlLoading(
-					final WebView view,
-					final WebResourceRequest request) {
-
-				final Uri url = request.getUrl();
-				if (Objects.equals(url.getHost(), OAUTH_HOST) &&
-						(Objects.equals(url.getScheme(), REDREADER_SCHEME) ||
-								Objects.equals(url.getScheme(), HTTP_SCHEME))) {
-					final Intent intent = new Intent();
-					intent.putExtra("url", url.toString());
-					setResult(123, intent);
-					finish();
-
-				} else {
-					setTitle(url.getHost());
-					return false;
-				}
-
-				return true;
-			}
-
-			@Override
-			public void onReceivedHttpError(
-					final WebView view,
-					final WebResourceRequest request,
-					final WebResourceResponse errorResponse) {
-
-				// onReceivedHttpError: https://www.reddit.com/svc/shreddit/account/login, error = 401
-				Log.e(TAG, "onReceivedHttpError: "
-						+ request.getUrl()
-						+ ", error = "
-						+ errorResponse.getStatusCode());
-
-				if (request.getUrl().toString().startsWith("https://www.reddit.com/svc/shreddit/account/login")
-						&& errorResponse.getStatusCode() / 100 == 4) {
-					DialogUtils.showDialogPositiveNegative(
-							OAuthLoginActivity.this,
-							getString(R.string.login_reddit_error_title),
-							getString(R.string.login_reddit_error_message),
-							R.string.dialog_continue,
-							R.string.dialog_cancel,
-							() -> {
-								LinkHandler.openCustomTab(
-										OAuthLoginActivity.this,
-										RedditOAuth.getPromptUri(),
-										null,
-										false
-								);
-								finish();
-							},
-							() -> {
-								finish();
-							}
-					);
-				}
-			}
-		});
-
-		return view;
-	}
-
-	@SuppressLint("SetJavaScriptEnabled")
-	@Override
-	public void onCreate(final Bundle savedInstanceState) {
-
-		PrefsUtility.applyTheme(this);
-
-		super.onCreate(savedInstanceState);
-
-		final WebView webView = createWebView();
-
-		if (webView != null) {
-			webViewStack.add(webView);
-			setBaseActivityListing(webView);
-
-			// Clear any cookies left over from a previous session. The deletion
-			// is asynchronous, so only start the login flow once it has been
-			// applied, otherwise the first request could send stale cookies.
-			CookieManager.getInstance().removeAllCookies(cookiesRemoved -> {
-				if (!isDestroyed()) {
-					webView.loadUrl(RedditOAuth.getPromptUri().toString());
-				}
-			});
-		}
-	}
-
-	@Override
-	protected void onPause() {
-
-		super.onPause();
-
-		for (final WebView w : webViewStack) {
-			w.onPause();
-			w.pauseTimers();
-		}
-	}
-
-	@Override
-	protected void onResume() {
-		super.onResume();
-
-		for (final WebView w : webViewStack) {
-			w.resumeTimers();
-			w.onResume();
-		}
 	}
 }

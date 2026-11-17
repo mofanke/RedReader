@@ -17,6 +17,16 @@
   -->
 <resources>
 	<string name="eink_settings">墨水屏阅读</string>
+	<string name="oauth_browser_title">登录 Reddit</string>
+	<string name="oauth_browser_description">在系统浏览器完成 Google、Apple 或密码登录，确认授权后返回此应用。</string>
+	<string name="oauth_browser_continue">在浏览器继续登录（支持 Google）</string>
+	<string name="oauth_browser_client_settings">配置 client ID（设置 → 网络）</string>
+	<string name="oauth_browser_client_required">请先在设置 → 网络 → Reddit client ID override 填写自己的 Reddit Installed app client ID。使用 Google 登录也需要该 ID，回调地址为 redreader://rr_oauth_redir。</string>
+	<string name="oauth_browser_missing">请先安装 Chrome、Firefox 等浏览器，再点击继续登录。</string>
+	<string name="oauth_browser_tor_required">已启用 Tor，请安装 Tor Browser 后再继续登录。</string>
+	<string name="oauth_browser_waiting">请在浏览器完成登录并确认 Reddit 授权。如果取消了登录，可点击继续登录重试。</string>
+	<string name="oauth_browser_denied">已取消 Reddit 授权，可点击继续登录重试。</string>
+	<string name="oauth_browser_invalid">登录请求已过期或与本次请求不匹配，请重新发起登录。</string>
 	<string name="eink_album_item">%1$d. %2$s</string>
 	<string name="eink_actions">更多</string>
 	<string name="eink_enabled">墨水屏模式与实体键翻页</string>

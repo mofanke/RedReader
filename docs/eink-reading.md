@@ -1,6 +1,6 @@
 # RedReader 墨水屏版
 
-本 fork 的版本为 `1.27-eink.2`，基于 RedReader 1.27，支持 Android 5.0（API 21）及以上。
+本 fork 的版本为 `1.27-eink.3`，基于 RedReader 1.27，支持 Android 5.0（API 21）及以上。
 应用名为 `RedReader E Ink`，包名为 `org.mofanke.redreader.eink`，可与原版并存。
 
 ## 阅读与翻页
@@ -39,6 +39,20 @@ JPEG、PNG、WebP 等受 Android 区域解码器支持的格式只解码当前�
 
 列表取消翻页动画，阅读标题栏保持稳定。主题默认使用灰色明亮主题，图片保持原色。
 帖子正文与评论沿用原生列表，评论入口不固定悬浮在正文底部。
+
+## Google 登录
+
+“添加账号”会打开系统浏览器，请在 Reddit 登录页选择 Google 登录，随后确认 Reddit 授权。
+授权完成后返回 RedReader E Ink；如果系统询问打开方式，选择 RedReader E Ink。
+没有浏览器时安装 Chrome、Firefox 等浏览器，再在登录页点击“继续登录”。
+
+登录使用浏览器已有会话，Google 密码和验证码在浏览器内填写。
+回跳由专用入口返回发起登录的页面，随后沿用 RedReader 原有账号与令牌处理。
+取消或过期时可以在登录页重新发起。启用了 Tor 时使用 Tor Browser 登录。
+
+使用 Google 登录仍需要下节中的 Reddit Installed app client ID。
+未配置时登录页提示进入设置 → 网络；回调地址保持 `redreader://rr_oauth_redir`。
+本次已验证浏览器启动与回跳契约，Google 账号完整授权和 B7 Pro 浏览器表现尚未实机验证。
 
 ## Reddit 联网配置
 

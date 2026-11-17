@@ -63,17 +63,19 @@ object RedditOAuth {
 	private val ACCESS_TOKEN_URL = UriString("https://www.reddit.com/api/v1/access_token")
 
 	@JvmStatic
-	val promptUri: Uri
-		get() {
-			val uri = "https://www.reddit.com/api/v1/authorize.compact".toUri().buildUpon()
-			uri.appendQueryParameter("response_type", "code")
-			uri.appendQueryParameter("duration", "permanent")
-			uri.appendQueryParameter("state", "Texas")
-			uri.appendQueryParameter("redirect_uri", REDIRECT_URI_NEW)
-			uri.appendQueryParameter("client_id", appId)
-			uri.appendQueryParameter("scope", ALL_SCOPES)
-			return uri.build()
-		}
+	fun getConfiguredClientId(): String? = appId
+
+	@JvmStatic
+	fun getPromptUri(state: String): Uri {
+		val uri = "https://www.reddit.com/api/v1/authorize.compact".toUri().buildUpon()
+		uri.appendQueryParameter("response_type", "code")
+		uri.appendQueryParameter("duration", "permanent")
+		uri.appendQueryParameter("state", state)
+		uri.appendQueryParameter("redirect_uri", REDIRECT_URI_NEW)
+		uri.appendQueryParameter("client_id", appId)
+		uri.appendQueryParameter("scope", ALL_SCOPES)
+		return uri.build()
+	}
 
 	private val appId: String?
 		get() = PrefsUtility.pref_reddit_client_id_override() ?: GlobalConfig.appId
