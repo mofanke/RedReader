@@ -323,6 +323,13 @@ public final class RedditPostView extends FlingableItemView
 
 		final boolean isNewPost = newPost != mPost;
 		final boolean showInlinePreview = newPost.shouldShowInlinePreview();
+		if(isNewPost && mImagePreviewHolder.getLayoutParams()
+				instanceof ViewGroup.MarginLayoutParams) {
+			final ViewGroup.MarginLayoutParams previewMargins
+					= (ViewGroup.MarginLayoutParams)mImagePreviewHolder.getLayoutParams();
+			previewMargins.topMargin = 0;
+			mImagePreviewHolder.setLayoutParams(previewMargins);
+		}
 
 		if(isNewPost) {
 

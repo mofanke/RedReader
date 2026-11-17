@@ -66,6 +66,10 @@ import org.quantumbadger.redreader.views.webview.VideoEnabledWebChromeClient;
 import org.quantumbadger.redreader.views.webview.WebViewFixed;
 
 import java.net.URISyntaxException;
+import java.io.InputStream;
+import org.quantumbadger.redreader.eink.EinkPreferences;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Timer;
@@ -437,6 +441,20 @@ public class WebViewFragment extends Fragment
 			@Override
 			public void onPageFinished(final WebView view, final String url) {
 				super.onPageFinished(view, url);
+				if(EinkPreferences.enabled(view.getContext())) {
+					try(InputStream input = view.getContext().getAssets().open("eink-reading.js")) {
+						final ByteArrayOutputStream data = new ByteArrayOutputStream();
+						final byte[] bytes = new byte[8192];
+						int count;
+						while((count = input.read(bytes)) > 0) {
+							data.write(bytes, 0, count);
+						}
+						view.evaluateJavascript(data.toString("UTF-8")
+								+ "\nHydrogenReadingLayout.init(true,2);", null);
+					} catch(final IOException ignore) {
+						// 资源不可读时继续当前网页。
+					}
+				}
 
 				new Timer().schedule(new TimerTask() {
 					@Override

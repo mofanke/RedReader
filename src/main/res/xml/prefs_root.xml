@@ -18,6 +18,16 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+	<PreferenceCategory android:title="@string/eink_settings">
+		<CheckBoxPreference android:key="eink_enabled"
+			android:title="@string/eink_enabled" android:defaultValue="true"
+			android:summary="@string/eink_enabled_summary"/>
+		<CheckBoxPreference android:key="eink_reverse_volume"
+			android:title="@string/eink_reverse_volume" android:defaultValue="false"/>
+		<ListPreference android:key="eink_overlap" android:title="@string/eink_overlap"
+			android:entries="@array/eink_overlap_values"
+			android:entryValues="@array/eink_overlap_values" android:defaultValue="2"/>
+	</PreferenceCategory>
 
     <Preference
         android:key="@string/prefs_category_appearance_key"

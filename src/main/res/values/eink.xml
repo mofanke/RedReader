@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ This file is part of RedReader.
+  ~
+  ~ RedReader is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ RedReader is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with RedReader.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+<resources>
+	<string name="eink_settings">E ink reading</string>
+	<string name="eink_album_item">%1$d. %2$s</string>
+	<string name="eink_actions">More</string>
+	<string name="eink_enabled">E ink mode and hardware page keys</string>
+	<string name="eink_enabled_summary">Volume keys and PageUp/PageDown use the screen arrows. Reopen the reading screen after changing this setting.</string>
+	<string name="eink_reverse_volume">Reverse volume key direction</string>
+	<string name="eink_overlap">Overlapping text lines</string>
+	<string name="eink_previous">▲ Previous page</string>
+	<string name="eink_next">▼ Next page</string>
+	<string name="eink_original">Original size</string>
+	<string name="eink_fit_width">Fit width</string>
+	<string name="eink_loading_image">Loading image…</string>
+	<string name="eink_image_failed">Cannot load this image. Reopen it to retry.</string>
+	<string name="eink_image_page">Page %1$d/%2$d · Row %3$d, column %4$d</string>
+	<string name="eink_previous_image">Previous image</string>
+	<string name="eink_next_image">Next image</string>
+	<string-array name="eink_overlap_values" translatable="false">
+		<item>1</item><item>2</item><item>3</item><item>4</item><item>5</item>
+	</string-array>
+</resources>

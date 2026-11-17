@@ -24,6 +24,11 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Window;
+import android.view.KeyEvent;
+import android.view.View;
+import org.quantumbadger.redreader.eink.EinkKeys;
+import org.quantumbadger.redreader.eink.EinkPager;
+import org.quantumbadger.redreader.eink.EinkPreferences;
 import android.view.WindowManager;
 
 import androidx.activity.OnBackPressedCallback;
@@ -49,6 +54,9 @@ public abstract class BaseActivity extends AppCompatActivity
 
 	private SharedPrefsWrapper mSharedPreferences;
 
+	private final EinkKeys mEinkKeys = new EinkKeys();
+	private EinkPager mComposeEinkPager;
+
 	private static boolean closingAll = false;
 
 	private final AtomicInteger mRequestIdGenerator = new AtomicInteger(10_000);
@@ -58,6 +66,43 @@ public abstract class BaseActivity extends AppCompatActivity
 
 	private final HashMap<Integer, ActivityResultCallback> mActivityResultCallbacks
 			= new HashMap<>();
+
+	public void setEinkPageController(@Nullable final EinkPager pager) {
+		mComposeEinkPager = pager;
+	}
+
+	protected boolean einkHasControls() {
+		return mComposeEinkPager != null && mComposeEinkPager.available();
+	}
+
+	protected boolean einkPress(final int direction) {
+		return mComposeEinkPager != null && mComposeEinkPager.press(direction);
+	}
+
+	@Override
+	public boolean dispatchKeyEvent(final KeyEvent event) {
+		final View focus = getCurrentFocus();
+		final boolean editing = focus != null && focus.onCheckIsTextEditor();
+		final int code = event.getKeyCode();
+		final boolean backwards = code == KeyEvent.KEYCODE_PAGE_UP
+				|| code == KeyEvent.KEYCODE_VOLUME_UP;
+		final boolean volume = code == KeyEvent.KEYCODE_VOLUME_UP
+				|| code == KeyEvent.KEYCODE_VOLUME_DOWN;
+		final int direction = (backwards != (volume && EinkPreferences.reverse(this))) ? -1 : 1;
+		if(mEinkKeys.dispatch(code, event.getAction(), editing,
+				EinkPreferences.enabled(this) && einkHasControls(), () -> einkPress(direction))) {
+			return true;
+		}
+		return super.dispatchKeyEvent(event);
+	}
+
+	@Override
+	public void onWindowFocusChanged(final boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		if(!hasFocus) {
+			mEinkKeys.clear();
+		}
+	}
 
 	public interface PermissionCallback {
 		void onPermissionGranted();

@@ -78,11 +78,11 @@ android {
 	namespace = "org.quantumbadger.redreader"
 
 	defaultConfig {
-		applicationId = "org.quantumbadger.redreader"
+		applicationId = "org.mofanke.redreader.eink"
 		minSdk = libs.versions.sdk.min.get().toInt()
 		targetSdk = libs.versions.sdk.target.get().toInt()
-		versionCode = 119
-		versionName = "1.27"
+		versionCode = 11901
+		versionName = "1.27-eink.1"
 
 		vectorDrawables.generatedDensities("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

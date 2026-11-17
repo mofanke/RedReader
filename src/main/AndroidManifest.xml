@@ -224,7 +224,7 @@
 
 		<provider
 				android:name="org.quantumbadger.redreader.cache.CacheContentProvider"
-				android:authorities="org.quantumbadger.redreader.cacheprovider"
+				android:authorities="${applicationId}.cacheprovider"
 				android:exported="false"
 				android:grantUriPermissions="true" />
     </application>

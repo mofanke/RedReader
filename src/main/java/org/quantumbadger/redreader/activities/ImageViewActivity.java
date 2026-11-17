@@ -99,6 +99,9 @@ import org.quantumbadger.redreader.views.video.ExoPlayerWrapperView;
 import org.quantumbadger.redreader.views.video.VideoGestureHandler;
 
 import java.io.IOException;
+import org.quantumbadger.redreader.eink.EinkImageView;
+import org.quantumbadger.redreader.eink.EinkPreferences;
+import android.widget.PopupMenu;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -116,6 +119,7 @@ public class ImageViewActivity extends ViewsBaseActivity
 
 	private GLSurfaceView surfaceView;
 	private ImageView imageView;
+	private EinkImageView mEinkImage;
 	private GifDecoderThread gifThread;
 
 	private ExoPlayerWrapperView mVideoPlayerWrapper;
@@ -166,6 +170,21 @@ public class ImageViewActivity extends ViewsBaseActivity
 	@Override
 	protected boolean baseActivityContentExtendsBehindStatusBar() {
 		return true;
+	}
+
+	@Override
+	protected boolean einkUsePagingBar() {
+		return false;
+	}
+
+	@Override
+	protected boolean einkHasControls() {
+		return mEinkImage != null;
+	}
+
+	@Override
+	protected boolean einkPress(final int direction) {
+		return mEinkImage != null && mEinkImage.press(direction);
 	}
 
 	@Override
@@ -518,6 +537,11 @@ public class ImageViewActivity extends ViewsBaseActivity
 				}
 			}
 
+			if(EinkPreferences.enabled(this) && !isVideo) {
+				showImageWithInternalViewer(videoStream);
+				return;
+			}
+
 			if(isVideo) {
 
 				AndroidCommon.UI_THREAD_HANDLER.post(() -> {
@@ -684,6 +708,9 @@ public class ImageViewActivity extends ViewsBaseActivity
 	public void onDestroy() {
 		super.onDestroy();
 		mIsDestroyed = true;
+		if(mEinkImage != null) {
+			mEinkImage.dispose();
+		}
 
 		cancelCacheRequests();
 
@@ -1077,7 +1104,9 @@ public class ImageViewActivity extends ViewsBaseActivity
 			return null;
 		}
 
-		mFloatingToolbar.setVisibility(View.VISIBLE);
+		if(mEinkImage == null) {
+			mFloatingToolbar.setVisibility(View.VISIBLE);
+		}
 
 		final ImageButton ib = (ImageButton)LayoutInflater.from(this).inflate(
 				R.layout.flat_image_button,
@@ -1338,8 +1367,51 @@ public class ImageViewActivity extends ViewsBaseActivity
 		gifThread.start();
 	}
 
+	private void showEinkImageActions(final View anchor) {
+		if(mFloatingToolbar == null) {
+			return;
+		}
+		final PopupMenu menu = new PopupMenu(this, anchor);
+		for(int i = 0; i < mFloatingToolbar.getChildCount(); i++) {
+			final View action = mFloatingToolbar.getChildAt(i);
+			if(action.getContentDescription() != null && action.isEnabled()) {
+				menu.getMenu().add(0, i, i, action.getContentDescription());
+			}
+		}
+		menu.setOnMenuItemClickListener(item -> {
+			mFloatingToolbar.getChildAt(item.getItemId()).performClick();
+			return true;
+		});
+		menu.show();
+	}
+
 	private void showImageWithInternalViewer(
 			@NonNull final GenericFactory<SeekableInputStream, IOException> streamFactory) {
+
+		if(EinkPreferences.enabled(this)) {
+			AndroidCommon.UI_THREAD_HANDLER.post(() -> {
+				if(mIsDestroyed) {
+					return;
+				}
+				if(mEinkImage != null) {
+					mEinkImage.dispose();
+				}
+				mEinkImage = new EinkImageView(this, streamFactory,
+						mAlbumInfo == null ? null
+								: () -> onHorizontalSwipe(mGallerySwipeLengthPx),
+						mAlbumInfo == null ? null
+								: () -> onHorizontalSwipe(-mGallerySwipeLengthPx),
+						this::showEinkImageActions);
+				setMainView(mEinkImage, false);
+				if(mSwipeOverlay != null) {
+					mSwipeOverlay.setVisibility(View.GONE);
+				}
+				if(mFloatingToolbar != null) {
+					mFloatingToolbar.setVisibility(View.GONE);
+				}
+			});
+			return;
+		}
 
 		Log.i(TAG, "Showing image using internal viewer");
 

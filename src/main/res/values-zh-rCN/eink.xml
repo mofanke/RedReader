@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ This file is part of RedReader.
+  ~
+  ~ RedReader is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ RedReader is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with RedReader.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+<resources>
+	<string name="eink_settings">墨水屏阅读</string>
+	<string name="eink_album_item">%1$d. %2$s</string>
+	<string name="eink_actions">更多</string>
+	<string name="eink_enabled">墨水屏模式与实体键翻页</string>
+	<string name="eink_enabled_summary">音量键、PageUp/PageDown 共用屏幕箭头。更改后重新打开阅读页面。</string>
+	<string name="eink_reverse_volume">反转音量键方向</string>
+	<string name="eink_overlap">翻页重叠行数</string>
+	<string name="eink_previous">▲ 上一页</string>
+	<string name="eink_next">▼ 下一页</string>
+	<string name="eink_original">原尺寸</string>
+	<string name="eink_fit_width">适应宽度</string>
+	<string name="eink_loading_image">正在加载图片…</string>
+	<string name="eink_image_failed">图片加载失败，请重新打开重试。</string>
+	<string name="eink_image_page">第 %1$d/%2$d 段 · 行 %3$d 列 %4$d</string>
+	<string name="eink_previous_image">上一张图片</string>
+	<string name="eink_next_image">下一张图片</string>
+</resources>

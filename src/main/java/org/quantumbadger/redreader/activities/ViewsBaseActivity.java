@@ -48,6 +48,8 @@ import org.quantumbadger.redreader.common.PrefsUtility;
 import org.quantumbadger.redreader.common.SharedPrefsWrapper;
 
 import java.util.Locale;
+import org.quantumbadger.redreader.eink.EinkPager;
+import org.quantumbadger.redreader.eink.EinkPreferences;
 
 public abstract class ViewsBaseActivity extends BaseActivity {
 
@@ -61,6 +63,7 @@ public abstract class ViewsBaseActivity extends BaseActivity {
 	private Optional<TextView> mActionbarTitleTextView = Optional.empty();
 
 	private FrameLayout mContentListing;
+	private EinkPager mEinkPager;
 	private FrameLayout mContentOverlay;
 
 	// The view which paints the system bar areas (see wrapWithSystemBarScrims)
@@ -185,7 +188,8 @@ public abstract class ViewsBaseActivity extends BaseActivity {
 			final boolean prefBottomToolbar
 					= PrefsUtility.pref_appearance_bottom_toolbar();
 
-			final boolean prefHideOnScroll = PrefsUtility.pref_appearance_hide_toolbar_on_scroll();
+			final boolean prefHideOnScroll = !EinkPreferences.enabled(this)
+					&& PrefsUtility.pref_appearance_hide_toolbar_on_scroll();
 
 			final int layoutRes;
 
@@ -579,7 +583,27 @@ public abstract class ViewsBaseActivity extends BaseActivity {
 
 	public void setBaseActivityListing(@NonNull final View view) {
 		mContentListing.removeAllViews();
-		mContentListing.addView(view);
+		if(EinkPreferences.enabled(this) && einkUsePagingBar()) {
+			mEinkPager = new EinkPager(this, view);
+			mContentListing.addView(mEinkPager.getView());
+		} else {
+			mEinkPager = null;
+			mContentListing.addView(view);
+		}
+	}
+
+	protected boolean einkUsePagingBar() {
+		return true;
+	}
+
+	@Override
+	protected boolean einkHasControls() {
+		return mEinkPager != null && mEinkPager.available();
+	}
+
+	@Override
+	protected boolean einkPress(final int direction) {
+		return mEinkPager != null && mEinkPager.press(direction);
 	}
 
 	public void clearBaseActivityListing() {
@@ -587,8 +611,7 @@ public abstract class ViewsBaseActivity extends BaseActivity {
 	}
 
 	public void setBaseActivityListing(final int layoutRes) {
-		mContentListing.removeAllViews();
-		getLayoutInflater().inflate(layoutRes, mContentListing, true);
+		setBaseActivityListing(getLayoutInflater().inflate(layoutRes, mContentListing, false));
 	}
 
 	public void setBaseActivityOverlay(@NonNull final View view) {

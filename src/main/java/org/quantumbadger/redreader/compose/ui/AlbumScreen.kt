@@ -18,6 +18,18 @@
 package org.quantumbadger.redreader.compose.ui
 
 import android.util.Log
+import android.graphics.Color
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.activity.compose.LocalActivity
+import androidx.compose.runtime.DisposableEffect
+import org.quantumbadger.redreader.activities.BaseActivity
+import org.quantumbadger.redreader.eink.EinkPreferences
+import org.quantumbadger.redreader.eink.EinkPager
+import org.quantumbadger.redreader.eink.EinkRecyclerView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -165,6 +177,49 @@ fun AlbumScreen(
 	val prefs = LocalComposePrefs.current
 	val theme = LocalComposeTheme.current
 	val launch = LocalLauncher.current
+
+	val activity = LocalActivity.current as? BaseActivity
+	if (activity != null && EinkPreferences.enabled(activity)) {
+		DisposableEffect(activity) {
+			onDispose { activity.setEinkPageController(null) }
+		}
+		AndroidView(
+			modifier = Modifier.fillMaxSize().systemBarsPadding(),
+			factory = { context ->
+				val list = EinkRecyclerView(context, null)
+				list.setBackgroundColor(Color.WHITE)
+				list.layoutManager = LinearLayoutManager(context)
+				list.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+					override fun getItemCount() = album.images.size
+					override fun onCreateViewHolder(parent: ViewGroup, type: Int): RecyclerView.ViewHolder {
+						val text = TextView(parent.context).apply {
+							setTextSize(20f)
+							setTextColor(Color.BLACK)
+							setPadding(20, 24, 20, 24)
+							layoutParams = RecyclerView.LayoutParams(-1, -2)
+						}
+						return object : RecyclerView.ViewHolder(text) {}
+					}
+					override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+						val image = album.images[position]
+						(holder.itemView as TextView).apply {
+							text = context.getString(R.string.eink_album_item, position + 1,
+								image.title ?: image.caption ?: context.getString(
+									R.string.album_image_default_text, position + 1))
+							setOnClickListener {
+								launch(Dest.Link(url = image.original.url,
+									albumInfo = album, albumImageIndex = position))
+							}
+						}
+					}
+				}
+				val pager = EinkPager(activity, list)
+				activity.setEinkPageController(pager)
+				pager.view
+			}
+		)
+		return
+	}
 
 	val accessibilityFocusRequester = remember { FocusRequester() }
 	val focusManager = LocalFocusManager.current

@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.quantumbadger.redreader.reddit.prepared.InlinePreviewLoader;
+import org.quantumbadger.redreader.eink.EinkPreferences;
 
 /**
  * Displays an inline image preview at the aspect ratio of the image itself, except where
@@ -97,7 +98,9 @@ public final class InlinePreviewHolderView extends FrameLayout {
 				final int height = ((RecyclerView)parent).getHeight();
 
 				if(height > 0) {
-					return height;
+					return EinkPreferences.enabled(getContext())
+							? Math.max(1, height - ((RecyclerView)parent).getPaddingTop()
+									- ((RecyclerView)parent).getPaddingBottom()) : height;
 				}
 
 				break;
@@ -120,9 +123,13 @@ public final class InlinePreviewHolderView extends FrameLayout {
 		}
 
 		final int width = MeasureSpec.getSize(widthMeasureSpec);
+		final int available = getDisplayAreaHeightPx();
+		final int maximum = EinkPreferences.enabled(getContext())
+				? Math.max(1, Math.min(InlinePreviewLoader.getMaxPreviewHeightPx(available),
+						available - 32)) : InlinePreviewLoader.getMaxPreviewHeightPx(available);
 
 		final int height = Math.max(1, Math.min(
-				InlinePreviewLoader.getMaxPreviewHeightPx(getDisplayAreaHeightPx()),
+				maximum,
 				(int)(((long)width * mImageHeightPx) / mImageWidthPx)));
 
 		super.onMeasure(

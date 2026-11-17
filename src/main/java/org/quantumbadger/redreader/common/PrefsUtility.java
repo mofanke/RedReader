@@ -249,7 +249,7 @@ public final class PrefsUtility {
 	public static AppearanceTheme appearance_theme() {
 		return AppearanceTheme.valueOf(StringUtils.asciiUppercase(getString(
 				R.string.pref_appearance_theme_key,
-				"red")));
+				"gray")));
 	}
 
 	public enum AppearanceNavbarColour {

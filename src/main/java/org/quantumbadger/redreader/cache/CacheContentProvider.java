@@ -18,6 +18,7 @@
 package org.quantumbadger.redreader.cache;
 
 import android.content.ContentProvider;
+import org.quantumbadger.redreader.BuildConfig;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.ProviderInfo;
@@ -99,7 +100,7 @@ public class CacheContentProvider extends ContentProvider {
 
 		return new Uri.Builder()
 				.scheme("content")
-				.authority("org.quantumbadger.redreader.cacheprovider")
+				.authority(BuildConfig.APPLICATION_ID + ".cacheprovider")
 				.encodedPath(generateFilename(cacheId, mimetype, defaultExtension))
 				.build();
 	}

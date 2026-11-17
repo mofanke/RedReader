@@ -9,7 +9,7 @@
 			android:layout_width="match_parent"
 			android:layout_height="match_parent">
 
-		<androidx.recyclerview.widget.RecyclerView
+		<org.quantumbadger.redreader.eink.EinkRecyclerView
 				android:id="@+id/scrollbar_recyclerview_recyclerview"
 				android:layout_width="match_parent"
 				android:layout_height="match_parent"/>
